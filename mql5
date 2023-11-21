@@ -1,0 +1,129 @@
+
+// Swing Scanner Limited
+// Developer's Site: forexroboteasy.com
+// Developer: Forex Robot Easy Team
+
+// Import necessary libraries
+#include <Trade\Trade.mqh>
+#include <ChartObjects\ChartObjects.mqh>
+
+// Define constants
+const int MA_PERIOD = 14; // Moving average period
+const double RISK_PERCENT = 2.0; // Risk percentage for position sizing
+
+// Define global variables
+CTrade trade; // Trade object
+int ticket; // Trade ticket
+double risk; // Risk amount
+double accountBalance; // Account balance
+double positionSize; // Position size
+
+// Initialization function
+int OnInit()
+{
+   // Set up trade parameters
+   trade.SetExpertMagicNumber(123456); // Expert advisor magic number
+
+   // Calculate risk amount
+   accountBalance = AccountInfoDouble(ACCOUNT_BALANCE);
+   risk = accountBalance * RISK_PERCENT / 100;
+
+   return(INIT_SUCCEEDED);
+}
+
+// Start function
+void OnStart()
+{
+   // Get current market data
+   MqlRates rates[];
+   ArraySetAsSeries(rates, true);
+   int copied = CopyRates(Symbol(), PERIOD_CURRENT, 0, 100, rates);
+
+   // Calculate moving average
+   double ma = iMA(Symbol(), PERIOD_CURRENT, MA_PERIOD, 0, MODE_SMA, PRICE_CLOSE, 0);
+
+   // Check for a bullish crossover
+   if (rates[0].close > ma && rates[1].close < ma)
+   {
+      // Calculate position size based on risk
+      positionSize = risk / (MathAbs(rates[0].close - rates[0].low) * Point);
+
+      // Open a long position
+      ticket = trade.Buy(positionSize);
+   }
+   // Check for a bearish crossover
+   else if (rates[0].close < ma && rates[1].close > ma)
+   {
+      // Calculate position size based on risk
+      positionSize = risk / (MathAbs(rates[0].close - rates[0].high) * Point);
+
+      // Open a short position
+      ticket = trade.Sell(positionSize);
+   }
+
+   // Display trading signals on chart
+   DrawSignalOnChart();
+}
+
+// Function to draw trading signals on chart
+void DrawSignalOnChart()
+{
+   // Clear previous chart objects
+   ObjectsDeleteAll(0, OBJ_LABEL);
+
+   // Draw entry and exit points
+   if (ticket > 0)
+   {
+      CChartObjectLabel entryPoint;
+      entryPoint.Create(0, 'Entry Point', 0, 0);
+      entryPoint.SetText('Buy');
+      entryPoint.SetColor(ColorGreen);
+      entryPoint.SetFont('Arial', 12, 0, false);
+      entryPoint.SetPosition(0, rates[0].high + 10 * Point);
+      entryPoint.SetTooltip('Entry Point');
+      entryPoint.Draw();
+
+      CChartObjectLabel exitPoint;
+      exitPoint.Create(0, 'Exit Point', 0, 0);
+      exitPoint.SetText('Sell');
+      exitPoint.SetColor(ColorRed);
+      exitPoint.SetFont('Arial', 12, 0, false);
+      exitPoint.SetPosition(0, rates[0].low - 10 * Point);
+      exitPoint.SetTooltip('Exit Point');
+      exitPoint.Draw();
+   }
+}
+
+// Function to close open positions
+void ClosePositions()
+{
+   // Close all open positions
+   trade.PositionCloseAll();
+}
+
+// Function to calculate position size based on risk
+double CalculatePositionSize(double risk, double stopLoss)
+{
+   // Calculate position size
+   double positionSize = risk / (stopLoss * Point);
+
+   return positionSize;
+}
+
+// Function to calculate stop loss level
+double CalculateStopLoss(double entryPrice, double risk)
+{
+   // Calculate stop loss level
+   double stopLoss = entryPrice - (risk / Point);
+
+   return stopLoss;
+}
+
+// Function to calculate take profit level
+double CalculateTakeProfit(double entryPrice, double risk)
+{
+   // Calculate take profit level
+   double takeProfit = entryPrice + (risk / Point);
+
+   return takeProfit;
+}
